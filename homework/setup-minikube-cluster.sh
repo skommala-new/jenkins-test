@@ -1,74 +1,90 @@
 #!/bin/bash
-# Setup Minikube Cluster (macOS + Docker driver)
-# Creates/starts a local Kubernetes cluster and prints a short summary.
+# Setup Minikube cluster on macOS
 
 set -e
 
-echo "=== Minikube Cluster Setup ==="
+echo "Setting up Minikube cluster..."
 
-# --- Basic command checks ---
-require_cmd() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Missing required command: $1"
-    echo "Please install it and re-run this script."
+# Check if running on macOS
+if [[ "$OSTYPE" != "darwin"* ]]; then
+    echo "Error: This script is for macOS only"
     exit 1
-  fi
+fi
+
+# Function to check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
 }
 
-# macOS hint (safe to skip if you want cross-platform)
-case "$OSTYPE" in
-  darwin*) : ;;
-  *) echo "Note: this script is written for macOS + Docker Desktop."; ;;
-esac
+# Install Homebrew if needed
+if ! command_exists brew; then
+    echo "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
 
-require_cmd docker
-require_cmd kubectl
-require_cmd minikube
+# Install Docker Desktop if needed
+if ! command_exists docker; then
+    echo "Installing Docker Desktop..."
+    brew install --cask docker
+    echo "Please start Docker Desktop from Applications and run this script again"
+    open -a Docker
+    exit 0
+fi
 
-# --- Ensure Docker is running ---
+# Check if Docker is running
 if ! docker info >/dev/null 2>&1; then
-  echo "Docker Desktop does not appear to be running."
-  echo "Please start Docker Desktop, wait until it's ready, then re-run."
-  exit 1
+    echo "Starting Docker Desktop..."
+    open -a Docker
+    echo "Waiting for Docker to start..."
+    for i in {1..30}; do
+        if docker info >/dev/null 2>&1; then
+            echo "Docker is running"
+            break
+        fi
+        sleep 2
+    done
+    
+    if ! docker info >/dev/null 2>&1; then
+        echo "Docker failed to start. Please start it manually and try again"
+        exit 1
+    fi
 fi
 
-# --- Start or reuse Minikube ---
+# Install kubectl
+if ! command_exists kubectl; then
+    echo "Installing kubectl..."
+    brew install kubectl
+fi
+
+# Install Minikube
+if ! command_exists minikube; then
+    echo "Installing Minikube..."
+    brew install minikube
+fi
+
+# Start Minikube if not running
 if minikube status >/dev/null 2>&1; then
-  echo "Minikube is already running."
+    echo "Minikube is already running"
 else
-  echo "Starting Minikube (driver=docker, cpus=2, memory=4g, disk=20g)..."
-  minikube start --driver=docker --cpus=2 --memory=4096 --disk-size=20g
+    echo "Starting Minikube cluster..."
+    echo "This will take a few minutes on first run..."
+    minikube start --driver=docker --cpus=2 --memory=4096
 fi
 
-# --- Set kubectl context to minikube ---
-kubectl config use-context minikube >/dev/null 2>&1 || true
+# Set kubectl context
+kubectl config use-context minikube
 
-# --- Optional addons (best-effort; ignore errors) ---
-echo "Enabling metrics-server addon (optional)..."
-minikube addons enable metrics-server >/dev/null 2>&1 || true
+# Enable useful addons
+echo "Enabling metrics-server addon..."
+minikube addons enable metrics-server
 
-echo "Enabling dashboard addon (optional)..."
-minikube addons enable dashboard >/dev/null 2>&1 || true
+echo "Enabling dashboard addon..."
+minikube addons enable dashboard
 
-# --- Summary ---
-echo
-echo "=== Cluster Summary ==="
-kubectl version --client --short || true
+# Show cluster info
+echo ""
+echo "Cluster setup complete!"
+echo ""
 kubectl cluster-info
-echo
-echo "Nodes:"
-kubectl get nodes -o wide
-echo
-echo "System pods (kube-system):"
-kubectl get pods -n kube-system
-echo
-echo "Done."
-echo
-echo "Next step:"
-echo "  ./deploy-application.sh"
-echo
-echo "Useful commands:"
-echo "  kubectl get pods,svc           # see workloads and services"
-echo "  minikube service <svc> --url   # get a URL for a NodePort service"
-echo "  minikube stop                  # stop the cluster"
-echo "  minikube delete                # delete the cluster"
+echo ""
+kubectl get nodes
