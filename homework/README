@@ -9,13 +9,13 @@ This project sets up a simple two-tier web application on a local Kubernetes clu
 ## Steps to Run
 1. Start the local cluster:
    ```bash
-   ./setup-minikube.sh
+   ./setup-minikube-cluster.sh
    ```
 2. Deploy the application:
    ```bash
    ./deploy-application.sh
    ```
-3. After deployment, the script will print a URL (for example, `http://127.0.0.1:30080`).  
+3. After deployment, run minikube service frontend-service --url.  
    Open that URL in your browser to view the app.
 
 ## What It Does
